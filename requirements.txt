@@ -1,2 +1,2 @@
-pyTelegramBotAP|==4.26.0
+pyTelegramBotAP==4.26.0
 python-dotenv==1.0.1
