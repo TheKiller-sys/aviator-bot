@@ -341,6 +341,7 @@ bot = telebot.TeleBot(TOKEN)
 USUARIO = {}
 VENTA = {}
 MENSAJES = {}
+MENSAJES_CONTENIDO = {}  # Nuevo: Diccionario para el contenido de los mensajes
 
 # --- Textos de Bienvenida Personalizados ---
 MENSAJES_BIENVENIDA = {
@@ -388,7 +389,9 @@ def cmd_start(message):
     Aquí puedes registrar tus ventas diarias. 📝
     ¡Impulsa tus ganancias, cada venta cuenta! 🚀
     """
-    MENSAJES[chat_id] = bot.send_message(chat_id, mensaje_bienvenida, reply_markup=markup).message_id
+    msg = bot.send_message(chat_id, mensaje_bienvenida, reply_markup=markup)
+    MENSAJES[chat_id] = msg.message_id
+    MENSAJES_CONTENIDO[chat_id] = mensaje_bienvenida
 
 @bot.callback_query_handler(func=lambda call: call.data == 'inicio_sesion')
 def inicio_sesion(call):
@@ -396,7 +399,15 @@ def inicio_sesion(call):
     USUARIO[chat_id] = {"estado": "esperando_usuario", "vendedor_id": None, "nombre": None}
     markup = types.InlineKeyboardMarkup()  # Keyboard markup
     #markup.add(types.InlineKeyboardButton("Volver", callback_data='volver_inicio'))
-    bot.edit_message_text("Por favor, ingresa tu usuario 👤:", chat_id, MENSAJES.get(chat_id), reply_markup = markup)
+    nuevo_contenido = "Por favor, ingresa tu usuario 👤:"
+    if MENSAJES_CONTENIDO.get(chat_id) != nuevo_contenido:
+        try:
+            bot.edit_message_text(nuevo_contenido, chat_id, MENSAJES.get(chat_id), reply_markup = markup)
+            MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
+        except telebot.apihelper.ApiTelegramException as e:
+            logging.error(f"Error al editar mensaje: {e}")
+    else:
+        logging.info("No es necesario editar el mensaje (contenido idéntico).")
 
 @bot.message_handler(func=lambda message: USUARIO.get(message.chat.id, {}).get("estado") == "esperando_usuario")
 def recibir_usuario(message):
@@ -410,13 +421,17 @@ def recibir_usuario(message):
         USUARIO[chat_id]["estado"] = "esperando_contrasena"
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Volver", callback_data='volver_inicio'))
-        msg = bot.send_message(chat_id, "Usuario correcto ✅. ¡Ingresa tu contraseña para acceder! 🔒:", reply_markup = markup)
+        nuevo_contenido = "Usuario correcto ✅. ¡Ingresa tu contraseña para acceder! 🔒:"
+        msg = bot.send_message(chat_id, nuevo_contenido, reply_markup = markup)
         MENSAJES[chat_id] = msg.message_id
+        MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
     else:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Volver", callback_data='volver_inicio'))
-        msg = bot.send_message(chat_id, "Usuario incorrecto ❌. Intenta de nuevo o contacta al administrador.", reply_markup = markup)
+        nuevo_contenido = "Usuario incorrecto ❌. Intenta de nuevo o contacta al administrador."
+        msg = bot.send_message(chat_id, nuevo_contenido, reply_markup = markup)
         MENSAJES[chat_id] = msg.message_id
+        MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id) #Delete the message sent by the user
 
 @bot.message_handler(func=lambda message: USUARIO.get(message.chat.id, {}).get("estado") == "esperando_contrasena")
@@ -432,8 +447,10 @@ def recibir_contrasena(message):
     else:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Volver", callback_data='volver_inicio'))
-        msg = bot.send_message(chat_id, "Contraseña incorrecta ❌. Intenta de nuevo.", reply_markup = markup)
+        nuevo_contenido = "Contraseña incorrecta ❌. Intenta de nuevo."
+        msg = bot.send_message(chat_id, nuevo_contenido, reply_markup = markup)
         MENSAJES[chat_id] = msg.message_id
+        MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id) #Delete the message sent by the user
 
 @bot.callback_query_handler(func=lambda call: call.data == 'volver_inicio')
@@ -460,11 +477,16 @@ def mostrar_menu_principal(message):
     markup.add(boton_venta, boton_historial)
     markup.add(boton_cerrar_sesion) # Añade el botón de cerrar sesión al menú
 
-    try:
-        bot.edit_message_text(mensaje_bienvenida + "\nSelecciona una opción para continuar:", chat_id, MENSAJES.get(chat_id), reply_markup=markup)
-    except telebot.apihelper.ApiTelegramException as e:
-        logging.error(f"Error al editar mensaje: {e}")
-        bot.send_message(chat_id, mensaje_bienvenida + "\nSelecciona una opción para continuar:", reply_markup=markup)
+    nuevo_contenido = mensaje_bienvenida + "\nSelecciona una opción para continuar:"
+    if MENSAJES_CONTENIDO.get(chat_id) != nuevo_contenido:
+        try:
+            bot.edit_message_text(nuevo_contenido, chat_id, MENSAJES.get(chat_id), reply_markup=markup)
+            MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
+        except telebot.apihelper.ApiTelegramException as e:
+            logging.error(f"Error al editar mensaje: {e}")
+            bot.send_message(chat_id, nuevo_contenido, reply_markup=markup)
+    else:
+        logging.info("No es necesario editar el mensaje (contenido idéntico).")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'cerrar_sesion')
@@ -487,9 +509,32 @@ def iniciar_venta(call):
         boton_volver = types.InlineKeyboardButton("Volver al menú principal", callback_data='volver_menu')
         boton_cancelar = types.InlineKeyboardButton("Cancelar 🚫", callback_data='cancelar_venta')
         markup.add(boton_cancelar, boton_volver)
-        bot.edit_message_text("¿Qué producto vendiste? 📦\n¡Elige el producto para registrar tu venta! 🚀", chat_id, MENSAJES.get(chat_id), reply_markup=markup)
+
+        nuevo_contenido = "¿Qué producto vendiste? 📦\n¡Elige el producto para registrar tu venta! 🚀"
+
+        if MENSAJES_CONTENIDO.get(chat_id) != nuevo_contenido:
+            try:
+                bot.edit_message_text(nuevo_contenido, chat_id, MENSAJES.get(chat_id), reply_markup=markup)
+                MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
+            except telebot.apihelper.ApiTelegramException as e:
+                logging.error(f"Error al editar mensaje: {e}")
+                bot.send_message(chat_id, nuevo_contenido, reply_markup=markup)
+        else:
+            logging.info("No es necesario editar el mensaje (contenido idéntico).")
+
+
+
     else:
-        bot.edit_message_text("No hay productos disponibles. Contacta al administrador.", chat_id, MENSAJES.get(chat_id))
+        nuevo_contenido = "No hay productos disponibles. Contacta al administrador."
+        if MENSAJES_CONTENIDO.get(chat_id) != nuevo_contenido:
+            try:
+                bot.edit_message_text(nuevo_contenido, chat_id, MENSAJES.get(chat_id))
+                MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
+            except telebot.apihelper.ApiTelegramException as e:
+                logging.error(f"Error al editar mensaje: {e}")
+                bot.send_message(chat_id, nuevo_contenido)
+        else:
+            logging.info("No es necesario editar el mensaje (contenido idéntico).")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('producto_') and VENTA.get(call.message.chat.id, {}).get("estado") == "esperando_producto")
 def seleccionar_producto(call):
@@ -502,8 +547,10 @@ def seleccionar_producto(call):
 
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("Volver", callback_data='volver_productos'))
-    msg = bot.send_message(chat_id, f"¡Excelente! Has seleccionado {nombre_producto} ✅ ¿Cuántas unidades vendiste? 🔢\n¡Ingresa la cantidad para registrar tus ganancias! 💰", reply_markup = markup)
+    nuevo_contenido = f"¡Excelente! Has seleccionado {nombre_producto} ✅ ¿Cuántas unidades vendiste? 🔢\n¡Ingresa la cantidad para registrar tus ganancias! 💰"
+    msg = bot.send_message(chat_id, nuevo_contenido, reply_markup = markup)
     MENSAJES[chat_id] = msg.message_id
+    MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
 
 @bot.callback_query_handler(func=lambda call: call.data == 'cancelar_venta' and VENTA.get(call.message.chat.id, {}).get("estado") == "esperando_producto")
 def cancelar_venta(call):
@@ -531,8 +578,10 @@ def registrar_cantidad(message):
     except ValueError:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Volver", callback_data='volver_productos'))
-        msg = bot.send_message(chat_id, "Cantidad inválida ❌. Debe ser un número entero positivo.", reply_markup = markup)
+        nuevo_contenido = "Cantidad inválida ❌. Debe ser un número entero positivo."
+        msg = bot.send_message(chat_id, nuevo_contenido, reply_markup = markup)
         MENSAJES[chat_id] = msg.message_id
+        MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
         bot.delete_message(chat_id=message.chat.id, message_id=message.message_id) #Delete the message sent by the user
         return
 
@@ -543,8 +592,10 @@ def registrar_cantidad(message):
     if inventario_actual < cantidad:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Volver", callback_data='volver_productos'))
-        msg = bot.send_message(chat_id, f"No hay suficiente inventario 😞. Tienes {inventario_actual} unidades disponibles.", reply_markup = markup)
+        nuevo_contenido = f"No hay suficiente inventario 😞. Tienes {inventario_actual} unidades disponibles."
+        msg = bot.send_message(chat_id, nuevo_contenido, reply_markup = markup)
         MENSAJES[chat_id] = msg.message_id
+        MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
         bot.delete_message(chat_id=message.chat.id, message_id=message.message_id) #Delete the message sent by the user
         return
 
@@ -558,8 +609,10 @@ def registrar_cantidad(message):
     else:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Volver", callback_data='volver_productos'))
-        msg = bot.send_message(chat_id, "Error al registrar la venta ❌. Contacta al administrador.", reply_markup = markup)
+        nuevo_contenido = "Error al registrar la venta ❌. Contacta al administrador."
+        msg = bot.send_message(chat_id, nuevo_contenido, reply_markup = markup)
         MENSAJES[chat_id] = msg.message_id
+        MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
     bot.delete_message(chat_id=message.chat.id, message_id=message.message_id) #Delete the message sent by the user
 
 @bot.callback_query_handler(func=lambda call: call.data == 'historial' and USUARIO.get(call.message.chat.id, {}).get("estado") == "logeado")
@@ -584,7 +637,16 @@ def mostrar_historial_diario(call):
 
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("Volver al menú principal", callback_data='volver_menu'))
-    bot.edit_message_text(mensaje, chat_id, MENSAJES.get(chat_id), reply_markup=markup)
+    nuevo_contenido = mensaje
+    if MENSAJES_CONTENIDO.get(chat_id) != nuevo_contenido:
+        try:
+            bot.edit_message_text(nuevo_contenido, chat_id, MENSAJES.get(chat_id), reply_markup=markup)
+            MENSAJES_CONTENIDO[chat_id] = nuevo_contenido
+        except telebot.apihelper.ApiTelegramException as e:
+            logging.error(f"Error al editar mensaje: {e}")
+            bot.send_message(chat_id, nuevo_contenido, reply_markup=markup)
+    else:
+        logging.info("No es necesario editar el mensaje (contenido idéntico).")
 
 # --- Main ---
 if __name__ == '__main__':
