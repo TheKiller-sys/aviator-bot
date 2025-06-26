@@ -2,5 +2,5 @@ APScheduler==3.10.4
 pyTelegramBotAPI==4.26.0
 python-dotenv==1.0.1
 python-telegram-bot==22.0
-Flask
+Flask==2.3.3
 request
