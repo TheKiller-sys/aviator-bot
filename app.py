@@ -10,7 +10,7 @@ from telebot import types
 from dotenv import load_dotenv # Importa la librería dotenv
 
 
-load_dotenv() # Carga las variables de entorno desde el archivo .env
+load_dotenv("config.env") # Carga las variables de entorno desde el archivo .env
 
 app = Flask(__name__)
 
