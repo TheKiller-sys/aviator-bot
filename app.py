@@ -22,8 +22,8 @@ port = int(os.environ.get('PORT', 5000))
 
 # --- Configuración del Bot de Telegram ---
 # Obtén el token del bot de las variables de entorno
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")  # Obtén el ID del chat del administrador
+BOT_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+CHAT_ID = os.environ.get("ADMIN_CHAT_ID")  # Obtén el ID del chat del administrador
 
 if not BOT_TOKEN:
     raise ValueError("El token del bot de Telegram no está configurado en las variables de entorno.")
