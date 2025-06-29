@@ -1,5 +1,6 @@
 import telebot
 from telebot import types
+from flask import Flask, request
 import os
 import sqlite3
 import logging
@@ -13,6 +14,18 @@ TOKEN = os.environ.get("TELEGRAM_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN")
 DATABASE_NAME = "servicej.db"
 ADMIN_CHAT_ID = os.environ.get("ADMIN_CHAT_ID", "YOUR_ADMIN_CHAT_ID")  # Add admin chat ID to .env
 LOG_GROUP_ID = os.environ.get("LOG_GROUP_ID", "YOUR_LOG_GROUP_ID")  # Add log group chat ID to .env
+
+WEBHOOK_URL = f'https://aviator-bot-yig0.onrender.com/'  # cambia esto
+
+app = Flask(__name__)
+
+# Ruta para que Telegram envíe los updates
+@app.route('/', methods=['POST'])
+def webhook():
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return 'OK', 200
 
 # --- Datos Iniciales ---
 USUARIOS_INICIALES = [
@@ -1399,8 +1412,17 @@ def mostrar_historial_diario(call):
     msg = bot.send_message(chat_id, mensaje, reply_markup=markup)
     MENSAJES[chat_id] = msg.message_id
 
-# --- Main ---
+# Configuración del webhook
+@app.before_first_request
+def setup_webhook():
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
+
+# Ejecutar el servidor Flask
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
     # Crea la base de datos si no existe
     create_database()
 
