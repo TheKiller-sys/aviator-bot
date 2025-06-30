@@ -1,0 +1,5 @@
+pyTelegramBotAPI
+python-dotenv
+UltimateRobot
+Pillow
+requests
