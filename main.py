@@ -970,5 +970,4 @@ if __name__ == '__main__':
     crear_conexion()
     crear_tablas()
     print("Bot is running...")
-    keep_alive()
     bot.infinity_polling()
