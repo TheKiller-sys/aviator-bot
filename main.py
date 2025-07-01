@@ -3,7 +3,6 @@ from telebot import types
 import os
 import json
 from dotenv import load_dotenv
-import keep_alive
 from PIL import Image
 import time
 import requests
